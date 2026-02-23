@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
 <!-- Appwrite SDK -->
-<script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.2"></script>
 <style>
   :root {
     --bg: #f0f4f8;
@@ -4705,9 +4705,17 @@ async function doLogin() {
   showLoading('מתחבר...', username);
 
   try {
-    // Try Appwrite Auth first
+    // Try Appwrite Auth first — support both SDK v13 and v16 method names
     try { await account.deleteSession('current'); } catch(_) {}
-    await account.createEmailPasswordSession(username + '@workflow.local', password);
+    const email = username + '@workflow.local';
+    if (typeof account.createEmailPasswordSession === 'function') {
+      await account.createEmailPasswordSession(email, password);
+    } else if (typeof account.createEmailPasswordSession === 'undefined' && typeof account.createSession === 'function') {
+      await account.createSession(email, password);
+    } else {
+      // SDK v16+: method is createEmailPasswordSession but exposed differently
+      await (account.createEmailPasswordSession || account.createSession).call(account, email, password);
+    }
 
     // Load data then find local user
     const ok = await loadAllFromAppwrite();
