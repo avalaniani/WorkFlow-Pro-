@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/c/:company", "destination": "/index.html" },
+    { "source": "/c/:company/(.*)", "destination": "/index.html" }
+  ]
+}
