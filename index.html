@@ -4622,9 +4622,13 @@ async function awDelete(collection, id) {
   return await db.deleteDocument(AW_CONFIG.databaseId, AW_CONFIG.collections[collection], id);
 }
 async function awUpsert(collection, id, data) {
-  try { return await awUpdate(collection, id, data); }
+  // Sanitize ID — Appwrite allows only [a-zA-Z0-9._-] max 36 chars
+  const safeId = id.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 36);
+  try { return await awUpdate(collection, safeId, data); }
   catch(e) {
-    if (e.code === 404) return await awCreate(collection, id, data);
+    if (e.code === 404 || e.code === 400 || e.type === 'document_not_found') {
+      return await awCreate(collection, safeId, data);
+    }
     throw e;
   }
 }
@@ -4725,8 +4729,13 @@ async function awSaveUser(user) {
     name: user.name, role: user.role, company: user.company || '',
     avatar: user.avatar, avatarColor: user.avatarColor,
     idType: user.idType || 'id', idNumber: user.idNumber || '' };
-  try { const doc = await awUpsert('users', $id, data); user.$id = doc.$id; }
-  catch(e) { console.warn('awSaveUser:', e); }
+  try {
+    const doc = await awUpsert('users', $id, data);
+    user.$id = doc.$id;
+    console.log('✅ awSaveUser:', user.username, '→', doc.$id);
+  } catch(e) {
+    console.error('❌ awSaveUser failed:', user.username, e.code, e.message, e);
+  }
 }
 
 async function awDeleteUser(userId) {
@@ -4737,12 +4746,18 @@ async function awDeleteUser(userId) {
 
 async function awSaveCompany(company) {
   if (!company) return;
-  const $id = company.$id || 'c_' + company.id;
+  const rawId = 'c_' + company.id;
+  const $id = company.$id || rawId;
   const data = { localId: company.id, name: company.name, emoji: company.emoji || '🏢',
     field: company.field || '', color: company.color || '#6c63ff',
     sigPassword: company.sigPassword || '' };
-  try { const doc = await awUpsert('companies', $id, data); company.$id = doc.$id; }
-  catch(e) { console.warn('awSaveCompany:', e); }
+  try {
+    const doc = await awUpsert('companies', $id, data);
+    company.$id = doc.$id;
+    console.log('✅ awSaveCompany:', company.name, '→', doc.$id);
+  } catch(e) {
+    console.error('❌ awSaveCompany failed:', company.name, e.code, e.message, e);
+  }
 }
 
 async function awDeleteCompany(companyId) {
@@ -4758,8 +4773,13 @@ async function awSaveTask(task) {
     assignedTo: task.assignedTo || 0, assignedBy: task.assignedBy || 0,
     company: task.company, priority: task.priority, status: task.status,
     dueDate: task.dueDate, createdByEmp: task.createdByEmp || false };
-  try { const doc = await awUpsert('tasks', $id, data); task.$id = doc.$id; }
-  catch(e) { console.warn('awSaveTask:', e); }
+  try {
+    const doc = await awUpsert('tasks', $id, data);
+    task.$id = doc.$id;
+    console.log('✅ awSaveTask:', task.title, '→', doc.$id);
+  } catch(e) {
+    console.error('❌ awSaveTask failed:', task.title, e.code, e.message, e);
+  }
 }
 
 async function awDeleteTask(taskId) {
